@@ -1,4 +1,5 @@
 #import the necessary packages
+import config
 from threading import Thread
 import cv2
  
@@ -7,8 +8,8 @@ class WebcamVideoStream:
         # initialize the video camera stream and read the first frame
         # from the stream
         self.stream = cv2.VideoCapture(src)
-        self.stream.set(3, 800)
-        self.stream.set(4, 600)        
+        self.stream.set(3, config.VIDEO_HEIGHT)
+        self.stream.set(4, config.VIDEO_WIDTH)        
         (self.grabbed, self.frame) = self.stream.read()
  
         # initialize the variable used to indicate if the thread should

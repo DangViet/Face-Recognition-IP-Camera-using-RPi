@@ -1,16 +1,22 @@
 import cv2
-
+from subprocess import call  
+import subprocess
+from datetime import datetime
 from FaceDetection import FaceDetection
-
+import config
+from WebcamStream import WebcamVideoStream
 from CameraStream import CameraStream
-from FaceRecognition import faceRecognition
+from NewFaceRecognition import NewFaceRecognition
 from multiprocessing.pool import ThreadPool
 from collections import deque
 import time
 from common import clock, draw_str, StatValue
 import copy
-from FaceTracking import FaceTracking
-
+#from FaceTracking import FaceTracking
+from Queue import Queue
+import internet
+import threading
+from sendSMS import send_sms
 class ProcImg():
     def __init__(self, stream):
         self.stream = stream
@@ -37,7 +43,7 @@ class ProcImg():
         for (x,y,w,h) in rects:
             pt1 = (int(x), int(y))
             pt2 = (int((x+w)), int(y + h))
-            cv2.rectangle(frame,  pt1, pt2, color, 2) # Draws the Rect
+            cv2.rectangle(frame,  pt1, pt2, color, 1) # Draws the Rect
         #return hits
 
         
@@ -46,11 +52,11 @@ class ProcImg():
         rects = [] 
         if len(self.pendingWorker) > 0 and self.pendingWorker[0].ready():
             task = self.pendingWorker.popleft()
-            frame, time = task.get()
-            self.latency.update(clock() - time)
+            frame, curTime = task.get()
+            self.latency.update(clock() - curTime)
             
-            draw_str(frame, (20, 580), "Latency: %.1f ms" % (self.latency.value*1000))
-            draw_str(frame, (20, 565), "FPS: %d" % (1/self.frameInterval.value))
+            draw_str(frame, (20, config.VIDEO_WIDTH -20), "Latency: %.1f ms" % (self.latency.value*1000))
+            draw_str(frame, (20, config.VIDEO_WIDTH - 35), "FPS: %d" % (1/self.frameInterval.value))
             #print("Latency %lf" % (self.latency.value*1000))
             #print("FPS: %d" % (1/self.frameInterval.value))
             self.outFrames.append(frame)
@@ -89,55 +95,88 @@ class ProcImg():
     def stop(self):
         workerPool.terminate()
         pendingWorker.clear()
-def draw(rects, labels, conf, frame):
+def draw(rects, labelAndConf, frame):
     color = (0, 0, 255)# Rect color selection
     for i in range(0, len(rects)):
         (x,y,w,h) = rects[i]
         pt1 = (int(x), int(y))
         pt2 = (int((x+w)), int(y + h))
-        #label = labels[i]
-        #confidence = conf[i]
-        cv2.rectangle(frame,  pt1, pt2, color, 2) # Draws the Rect
-        #if label == 8:
-        #    draw_str(frame, (int(x), int(y-5)), "-VietDang-%d"%(confidence))
-        #else:
-        #    draw_str(frame, (int(x), int(y-5)), "--%d"%(confidence))
+        label = labelAndConf[i][0]
+        confidence = labelAndConf[i][1]
+        cv2.rectangle(frame,  pt1, pt2, color, 1) # Draws the Rect
+        if confidence <= 70 and confidence != 0:
+            if label == 1:
+                draw_str(frame, (int(x), int(y-5)), "-VietDang-%d"%(confidence))
+            elif label == 2:
+                draw_str(frame, (int(x), int(y-5)), "-NgoDat-%d"%(confidence))
+        else:
+            draw_str(frame, (int(x), int(y-5)), "--")
+    draw_str(frame, (20, config.VIDEO_WIDTH - 50),time.ctime())
 
-lastFrame = None
 faces = []
-labels = []
-conf = []
 mode = 0
+lockAlert = threading.Lock()
+lockSMS = threading.Lock()
+msg = "Detect Dang Viet"
+to = "+84 122 513 9439"
 def process(frame, t):
-    global mode
-    global faces
-    global labels
-    global conf
-    global mode
+    #global faces
+    #global labels
+    #global conf
     global lastFrame
-    if mode == 0 :
-        #Face Detection    
-        numFaces, faces = FaceDetection(frame).run() 
-        #Face Recognition 
-        labels, conf = faceRecognition(frame, faces)
-    else:
+    global mode 
+    labelAndConf = []
+    #Face Detection    
+    numFaces, faces = FaceDetection(frame).run() 
+    #Face Recognition 
+    labelAndConf= NewFaceRecognition(frame, faces)
+    draw(faces, labelAndConf, frame)
+    for eachLabel in labelAndConf:
+        if eachLabel[0] == 1:
+            mode +=1
+    
+    if internet.On() and mode == 5:
+        if not lockAlert.acquire(False):
+            pass
+        else:
+            try:
+                #upload to dropbox:
+                cv2.imwrite('./temp.png', frame, [cv2.IMWRITE_PNG_COMPRESSION,9])
+                photofile = "/home/pi/Dropbox-Uploader/dropbox_uploader.sh upload ./temp.png "+time.ctime().replace(" ", "_")+".png"   
+                print photofile
+                subprocess.Popen(photofile, shell=True)
+                pass
+            finally:
+                pass
+    if internet.On() and mode == 15:
+        if not lockSMS.acquire(False):
+            pass
+        else:
+            try:
+                print "Send Alert SMS"
+                send_sms(msg, to)
+            finally:
+                pass
+
+    #else:
         #Face Tracking 
-        faces = FaceTracking(frame, lastFrame, faces)
+        #faces = FaceTracking(frame, lastFrame, faces)
         #labels, conf = faceRecognition(frame, faces)
-    mode = (mode+1)%4
-    print mode
-    lastFrame = copy.copy(frame)
-    draw(faces, labels, conf, frame)
+    #draw(faces, labels, conf, frame)
     return frame, t
 
 if __name__ == '__main__':
     from imutils.video.pivideostream import PiVideoStream
-    stream = CameraStream(resolution = (640, 480)).start()
-    time.sleep(1.0)
+    stream = WebcamVideoStream().start()
+    time.sleep(0.5)
     imgProc = ProcImg(stream)
-    while True:
-        imgProc.threadedProcess()
-        if not imgProc.isEmpty():
-            frame = imgProc.getFrame()
-            cv2.imshow('Processed Frame', frame)
-            cv2.waitKey(1)
+    try:
+        while True:
+            imgProc.threadedProcess()
+            if not imgProc.isEmpty():
+                frame = imgProc.getFrame()
+                cv2.imshow('Processed Frame', frame)
+                cv2.waitKey(1)
+    except KeyboardInterrupt:
+        stream.stop()
+        cv2.destroyAllWindows()
