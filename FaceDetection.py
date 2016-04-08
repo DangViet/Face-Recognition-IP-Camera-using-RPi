@@ -50,7 +50,7 @@ class FaceDetection():
         return self.detect('haarcascade_upperbody.xml')
  
     def pedestrian(self):
-        return self.detect("hogcascade_pedestrians.xml")
+        return self.detect("haarcascade_pedestrians.xml")
  
     # This function will draw the rectangles around all objects found and then 
     #  overwrite the original image file.
@@ -70,7 +70,7 @@ class FaceDetection():
         #uppers = len(self.upper_body())
         #fulls = len(self.full_body())
         #peds = len(self.pedestrian())
-        self.draw()
+        #self.draw()         
         rects = []
         for hits in self.rects:
             for (x, y, w, h)in hits:

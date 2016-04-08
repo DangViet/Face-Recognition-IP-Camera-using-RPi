@@ -4,10 +4,12 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import StringIO
 import time
 
-from imutils.video import WebcamVideoStream
-from imutils.video import FPS
-import imutils
-from imutils.video.pivideostream import PiVideoStream
+#from imutils.video import WebcamVideoStream
+#from imutils.video import FPS
+#import imutils
+#from imutils.video.pivideostream import PiVideoStream
+from CameraStream import CameraStream
+from WebcamStream import WebcamVideoStream
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 
@@ -56,7 +58,7 @@ class CamHandler(BaseHTTPRequestHandler):
                 return
 def main():
     
-    stream = PiVideoStream((640,480), 32).start() 
+    stream = WebcamVideoStream(src=0).start() 
     global ProcessImage 
     ProcessImage = ProcImg(stream)
     try:
@@ -64,6 +66,7 @@ def main():
         print "server started"
         server.serve_forever()
     except KeyboardInterrupt:
+        stream.stop()
         cv2.destroyAllWindows()
         server.socket.close()
 
