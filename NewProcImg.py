@@ -22,7 +22,7 @@ class ProcImg():
     def __init__(self, stream):
         self.stream = stream
         self.numThread = cv2.getNumberOfCPUs()
-        self.numThread = 5
+        #self.numThread = 1
         self.workerPool = ThreadPool(processes = self.numThread)
         self.pendingWorker = deque()
 
@@ -85,7 +85,7 @@ def draw(rects, labelAndConf, frame, color):
         label = labelAndConf[i][0]
         
         confidence = labelAndConf[i][1]
-        cv2.rectangle(frame,  pt1, pt2, color, 1) # Draws the Rect
+        cv2.rectangle(frame,  pt1, pt2, color, 5) # Draws the Rect
         if confidence <= 60 and confidence != 0:
             if label == 1:
                 draw_str(frame, (int(x), int(y-5)), "-VietDang-%d"%(confidence))
@@ -127,7 +127,7 @@ def process(frame, t):
         allRoiHist = FaceTracking.calcHist(frame, allRoiPts)
         allDrawPts = allRoiPts
         lockGlobVar.release()
-        color = (0,0,255)          
+        color = (0,255,0)          
     else:
         if len(allRoiPts) != 0:
             lockGlobVar.acquire()

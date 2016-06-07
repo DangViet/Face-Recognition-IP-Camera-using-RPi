@@ -96,14 +96,14 @@ class ProcImg():
         workerPool.terminate()
         pendingWorker.clear()
 def draw(rects, labelAndConf, frame):
-    color = (0, 0, 255)# Rect color selection
+    color = (0, 255, 0)# Rect color selection
     for i in range(0, len(rects)):
         (x,y,w,h) = rects[i]
         pt1 = (int(x), int(y))
         pt2 = (int((x+w)), int(y + h))
         label = labelAndConf[i][0]
         confidence = labelAndConf[i][1]
-        cv2.rectangle(frame,  pt1, pt2, color, 1) # Draws the Rect
+        cv2.rectangle(frame,  pt1, pt2, color, 4) # Draws the Rect
         if confidence <= 70 and confidence != 0:
             if label == 1:
                 draw_str(frame, (int(x), int(y-5)), "-VietDang-%d"%(confidence))
@@ -135,7 +135,7 @@ def process(frame, t):
         if eachLabel[0] == 1:
             mode +=1
     
-    if internet.On() and mode == 5:
+    if internet.On() and mode == 5 :
         if not lockAlert.acquire(False):
             pass
         else:
@@ -148,7 +148,7 @@ def process(frame, t):
                 pass
             finally:
                 pass
-    if internet.On() and mode == 15:
+    if internet.On() and mode == 10 :
         if not lockSMS.acquire(False):
             pass
         else:
